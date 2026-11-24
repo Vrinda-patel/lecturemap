@@ -27,7 +27,7 @@ async function api(path, body) {
   try { data = await res.json(); } catch {}
   if (!res.ok) {
     const d = data && data.detail;
-    throw new Error(typeof d === "string" ? d : "Kuch gadbad ho gayi. Dobara try karo.");
+    throw new Error(typeof d === "string" ? d : `Kuch gadbad ho gayi (error ${res.status}). Dobara try karo.`);
   }
   return data;
 }

@@ -56,17 +56,32 @@ def load_course() -> tuple[Corpus, list[dict]]:
 
 # ---------- external APIs ----------
 
+REQUIRED_ENV = ("GROQ_API_KEY", "CF_ACCOUNT_ID", "CF_API_TOKEN")
+
+
+def env(name: str) -> str:
+    val = os.environ.get(name, "").strip().strip('"').strip("'")
+    if not val:
+        raise UpstreamError(f"Server setup adhoora hai: {name} env var set nahi hai.")
+    return val
+
+
 def embed(texts: list[str]) -> np.ndarray:
-    url = f"https://api.cloudflare.com/client/v4/accounts/{os.environ['CF_ACCOUNT_ID']}/ai/run/@cf/baai/bge-m3"
-    headers = {"Authorization": f"Bearer {os.environ['CF_API_TOKEN']}"}
+    url = f"https://api.cloudflare.com/client/v4/accounts/{env('CF_ACCOUNT_ID')}/ai/run/@cf/baai/bge-m3"
+    headers = {"Authorization": f"Bearer {env('CF_API_TOKEN')}"}
     out = []
     for i in range(0, len(texts), 50):
         try:
             r = requests.post(url, headers=headers, json={"text": texts[i:i + 50]}, timeout=30)
+        except requests.RequestException as e:
+            raise UpstreamError("Search service (Cloudflare) se connect nahi ho paaya.") from e
+        if r.status_code in (401, 403):
+            raise UpstreamError("Cloudflare ne key reject kar di — CF_ACCOUNT_ID / CF_API_TOKEN check karo.")
+        try:
             r.raise_for_status()
             out.extend(r.json()["result"]["data"])
-        except requests.RequestException as e:
-            raise UpstreamError("Search service abhi respond nahi kar rahi. Thodi der baad try karo.") from e
+        except (requests.RequestException, KeyError, TypeError, ValueError) as e:
+            raise UpstreamError(f"Search service (Cloudflare) error {r.status_code}. Thodi der baad try karo.") from e
     vecs = np.array(out, dtype=np.float32)
     return vecs / np.linalg.norm(vecs, axis=1, keepdims=True)
 
@@ -84,7 +99,7 @@ def chat(system: str, user: str, json_mode: bool = False, max_tokens: int = 1500
     try:
         r = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {os.environ['GROQ_API_KEY']}"},
+            headers={"Authorization": f"Bearer {env('GROQ_API_KEY')}"},
             json=body,
             timeout=60,
         )
@@ -92,9 +107,14 @@ def chat(system: str, user: str, json_mode: bool = False, max_tokens: int = 1500
         raise UpstreamError("AI service se connect nahi ho paaya. Dobara try karo.") from e
     if r.status_code == 429:
         raise UpstreamError("Abhi bahut log use kar rahe hain 😅 10 second baad dobara try karo.")
+    if r.status_code in (401, 403):
+        raise UpstreamError("Groq ne key reject kar di — GROQ_API_KEY check karo.")
     if not r.ok:
-        raise UpstreamError("AI service mein dikkat aa gayi. Dobara try karo.")
-    return r.json()["choices"][0]["message"]["content"]
+        raise UpstreamError(f"AI service (Groq) error {r.status_code}. Dobara try karo.")
+    try:
+        return r.json()["choices"][0]["message"]["content"] or ""
+    except (KeyError, IndexError, TypeError, ValueError) as e:
+        raise UpstreamError("AI ka jawab samajh nahi aaya. Dobara try karo.") from e
 
 
 def chat_json(system: str, user: str, max_tokens: int = 2500) -> dict:

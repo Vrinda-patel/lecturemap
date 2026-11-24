@@ -22,7 +22,7 @@ except ImportError:
 
 import prompts
 import youtube
-from rag import UpstreamError, chat, chat_json, context_block, embed, load_course, ref_to_source, source
+from rag import REQUIRED_ENV, UpstreamError, chat, chat_json, context_block, embed, load_course, ref_to_source, source
 
 app = FastAPI(title="LectureMap")
 
@@ -225,7 +225,9 @@ def load_youtube(body: YouTubeIn):
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "chunks": len(COURSE.chunks)}
+    # only says whether each key is present — never its value
+    return {"ok": True, "chunks": len(COURSE.chunks),
+            "env": {k: bool(os.environ.get(k, "").strip()) for k in REQUIRED_ENV}}
 
 
 # ---------- frontend ----------
