@@ -12,3 +12,6 @@ transcripts/
 jsons/
 
 
+
+# build output
+dist/

@@ -15,7 +15,7 @@ A beautiful web interface for your RAG-based JavaScript course assistant.
 
 1. Install dependencies:
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-streamlit.txt
 ```
 
 2. Make sure Ollama is running:

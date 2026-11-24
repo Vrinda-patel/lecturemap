@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>LectureMap – Every doubt, to the exact second</title>
+  <meta name="description" content="Ask any JavaScript doubt and jump to the exact second in the lecture. Notes, quizzes and mock interviews from Namaste JavaScript.">
+  <meta property="og:title" content="LectureMap – Every doubt, to the exact second">
+  <meta property="og:description" content="Ask any JS doubt → jump to the exact second in the lecture. Notes, quiz & mock interviews.">
+  <meta name="theme-color" content="#0d0f14">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%23f7df1e'/><path d='M38 28v44l36-22z' fill='%2314140f'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- icon sprite -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z"/></symbol>
+    <symbol id="i-exam" viewBox="0 0 24 24"><path d="M9 4h6M9 4a2 2 0 0 0-2 2H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-1a2 2 0 0 0-2-2M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M8.5 13.5l2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5-11-6.5Z" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-yt" viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="4"/><path d="M10 9.5v5l4.5-2.5L10 9.5Z" fill="currentColor"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5v-15ZM4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/></symbol>
+  </svg>
+
+  <div class="backdrop" id="backdrop"></div>
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="logo"><svg><use href="#i-play"/></svg></span>
+      <div><b>LectureMap</b><small>Every doubt, to the exact second</small></div>
+      <button class="icon-btn only-mobile" id="closeSidebar" aria-label="Close menu"><svg><use href="#i-x"/></svg></button>
+    </div>
+
+    <nav class="nav only-desktop" aria-label="Mode">
+      <button data-tab="ask" class="active"><svg><use href="#i-chat"/></svg>Ask a doubt</button>
+      <button data-tab="exam"><svg><use href="#i-exam"/></svg>Exam prep</button>
+      <button data-tab="interview"><svg><use href="#i-mic"/></svg>Mock interview</button>
+    </nav>
+
+    <div class="section-label">Answer language</div>
+    <div class="seg" id="langSeg" role="group" aria-label="Answer language">
+      <button data-lang="hinglish">Hinglish</button>
+      <button data-lang="english">English</button>
+    </div>
+
+    <div class="section-label">Your YouTube videos <span class="beta">Beta</span></div>
+    <div class="sources" id="ytSources"></div>
+    <button class="add-yt" id="ytToggle"><svg><use href="#i-plus"/></svg>Add a YouTube video</button>
+    <div id="ytPanel" class="yt-panel" hidden>
+      <p class="hint">Works only if the video has captions. YouTube sometimes blocks server access — if it fails, use the built-in course.</p>
+      <form id="ytForm">
+        <input id="ytUrl" type="url" inputmode="url" placeholder="Paste YouTube link" required>
+        <button class="btn sm">Load</button>
+      </form>
+      <p id="ytMsg" class="hint"></p>
+    </div>
+
+    <div class="section-label">Namaste JavaScript</div>
+    <div class="sources" id="sources"></div>
+
+    <div class="sidebar-foot">
+      <p class="credit">Content: <a href="https://www.youtube.com/playlist?list=PLlasXeu85E9cQ32gLCvAvr9vNaUccPVNP" target="_blank" rel="noopener">Namaste JavaScript</a> by Akshay Saini<br>Deployed on Embarko</p>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn only-mobile" id="openSidebar" aria-label="Open menu"><svg><use href="#i-menu"/></svg></button>
+      <div class="topbar-title">
+        <small id="modeLabel">Ask a doubt</small>
+        <b id="sourceLabel">All episodes</b>
+      </div>
+      <button class="btn ghost sm new-chat" id="newChat" hidden><svg><use href="#i-plus"/></svg>New chat</button>
+    </header>
+
+    <nav class="tabs only-mobile" aria-label="Mode">
+      <button data-tab="ask" class="active">Ask</button>
+      <button data-tab="exam">Exam</button>
+      <button data-tab="interview">Interview</button>
+    </nav>
+
+    <div id="playerWrap" class="player" hidden>
+      <div id="player"></div>
+      <button id="closePlayer" class="link-btn"><svg><use href="#i-x"/></svg>Close video</button>
+    </div>
+
+    <main class="content">
+      <!-- ASK -->
+      <section id="tab-ask" class="tab">
+        <div id="chat" class="chat">
+          <div class="empty" id="askEmpty">
+            <h1>What do you want to understand?</h1>
+            <p class="sub">Every answer links to the exact moment in the lecture.</p>
+            <div class="samples">
+              <button>Closure kya hota hai?</button>
+              <button>Event loop kaise kaam karta hai?</button>
+              <button>let, const aur var mein kya difference hai?</button>
+              <button>Hoisting simple example se samjhao</button>
+            </div>
+          </div>
+        </div>
+        <form id="askForm" class="composer">
+          <input id="askInput" placeholder="Ask a question…" autocomplete="off" maxlength="500" required>
+          <button class="btn icon" aria-label="Send"><svg><use href="#i-send"/></svg></button>
+        </form>
+      </section>
+
+      <!-- EXAM -->
+      <section id="tab-exam" class="tab" hidden>
+        <div class="intro">
+          <h1>Exam prep</h1>
+          <p class="sub">5 revision notes and a 5-question quiz from the selected source.</p>
+          <form id="examForm" class="bar">
+            <input id="examTopic" placeholder="Focus topic (optional) — e.g. promises" maxlength="200">
+            <button class="btn">Generate</button>
+          </form>
+        </div>
+        <div id="examOut"></div>
+      </section>
+
+      <!-- INTERVIEW -->
+      <section id="tab-interview" class="tab" hidden>
+        <div class="intro">
+          <h1>Mock interview</h1>
+          <p class="sub">One question at a time. Get a score, feedback and where to revise.</p>
+          <form id="ivStartForm" class="bar">
+            <input id="ivTopic" placeholder="Focus topic (optional) — e.g. closures" maxlength="200">
+            <button class="btn">Start</button>
+          </form>
+        </div>
+        <div id="ivOut"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
