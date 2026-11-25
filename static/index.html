@@ -36,6 +36,7 @@
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
     <symbol id="i-send" viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></symbol>
     <symbol id="i-yt" viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="4"/><path d="M10 9.5v5l4.5-2.5L10 9.5Z" fill="currentColor"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
     <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5v-15ZM4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/></symbol>
   </svg>
 
@@ -90,6 +91,9 @@
         <b id="sourceLabel">All episodes</b>
       </div>
       <button class="btn ghost sm new-chat" id="newChat" hidden><svg><use href="#i-plus"/></svg>New chat</button>
+      <button class="btn ghost sm export" data-export="conversation" title="Download Conversation PDF"><svg><use href="#i-download"/></svg><span class="long">Download Conversation PDF</span><span class="short">PDF</span></button>
+      <button class="btn ghost sm export" data-export="exam" title="Download Exam Revision PDF" hidden><svg><use href="#i-download"/></svg><span class="long">Download Exam Revision PDF</span><span class="short">PDF</span></button>
+      <button class="btn ghost sm export" data-export="interview" title="Download Interview Report" hidden><svg><use href="#i-download"/></svg><span class="long">Download Interview Report</span><span class="short">Report</span></button>
     </header>
 
     <nav class="tabs only-mobile" aria-label="Mode">
@@ -152,9 +156,14 @@
     </main>
   </div>
 
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <!-- filled only while exporting a PDF; the only thing visible when printing -->
+  <div id="printRoot"></div>
+
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
   <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="/static/report.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

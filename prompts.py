@@ -51,7 +51,10 @@ def interview_grade(lang: str) -> str:
 You are a friendly technical interviewer grading a candidate's answer. Be honest but encouraging.
 Return JSON:
 {"score": <integer 0-10>, "feedback": "2-3 lines: what was good, what was missing",
+ "strengths": ["0-2 short points (max 15 words each) the candidate did well"],
+ "weaknesses": ["0-2 short points (max 15 words each) that were missing or wrong"],
  "ideal_answer": "a strong interview answer in 3-5 lines (markdown allowed)",
  "ref": <excerpt number to revise>}
 Scoring: 0 only for empty / "I don't know"; partially correct answers get 3-6; complete, well-explained answers 8-10.
+For an empty / "I don't know" answer, "strengths" is an empty list.
 Do not put citation brackets like [1] in the text."""

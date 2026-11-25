@@ -27,6 +27,22 @@ Content: [Namaste JavaScript by Akshay Saini](https://www.youtube.com/playlist?l
 2. Go to https://embarko.ai/app, choose **Put something online**, then **Upload a file instead**, and upload the zip.
 3. In App setup, set the env vars `GROQ_API_KEY`, `CF_ACCOUNT_ID` and `CF_API_TOKEN`.
 
+## PDF export
+Each mode has a download button in the top bar: **Download Conversation PDF** (Ask), **Download Exam Revision PDF** (Exam) and **Download Interview Report** (Interview).
+
+- **How it works:** `static/report.js` turns the session data already in the browser into a branded A4 report, and the browser's print dialog saves it (choose **Save as PDF**). No server endpoint, no extra AI calls, nothing new to install.
+- **Privacy:** session data never leaves the user's browser, so there are no sessions to authorise. AI text is sanitised with DOMPurify and user text is HTML-escaped before it goes into the report.
+- **Contents:** Conversation has every Q&A, code blocks, clickable timestamp links and an index of lecture moments. Exam Revision has notes, quiz questions with the correct answer, your answer and explanations. Interview Report has per-question and overall scores, feedback, improved answers, strengths, weaknesses and a revision plan.
+- **Browsers:** Chrome/Edge (desktop and Android) and Safari (macOS and iOS, via Share → Save to Files). Page numbers in the footer need Chrome/Edge 131+; other browsers still produce the PDF without them. In-app browsers (Instagram, WhatsApp and similar) can't save PDFs, so the app asks the user to open the link in Chrome or Safari.
+- **Why not server-side Playwright/Chromium:** Embarko gives 256 MB RAM and deploys from a zip with only `requirements.txt`. Headless Chromium needs about 150–300 MB per render plus a browser binary and system libraries, so it would crash the app.
+
+## Tests
+```bash
+pip install -r requirements-dev.txt
+python -m pytest tests/            # API (AI calls are stubbed, no keys needed)
+node --test tests/report.test.js   # PDF report builders (Node 18+)
+```
+
 ## Rebuilding the data from your own videos
 The original offline pipeline still works. It needs local Ollama with `bge-m3`.
 1. Put videos in `videos/`, then run `process_videos.py` (ffmpeg converts them to mp3).

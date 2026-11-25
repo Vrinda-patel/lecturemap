@@ -7,6 +7,10 @@ const state = {
   video: null,        // youtube_id or null (= whole course)
   ytVideos: [],       // [{video, title}] loaded via Beta panel
   asked: [],          // interview questions already asked
+  // session data kept only in this tab, reused for PDF export (never sent to the server)
+  askLog: [],         // [{q, answer, sources, source}]
+  exam: null,         // {topic, notes, quiz, picks}
+  interview: null,    // {topic, rounds: [{question, answer, score, feedback, ideal_answer, strengths, weaknesses, source}]}
 };
 let COURSE = [];
 
@@ -88,6 +92,7 @@ function setTab(tab) {
   $$("[data-tab]").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
   $$(".tab").forEach(t => { t.hidden = t.id !== `tab-${tab}`; });
   $("#modeLabel").textContent = MODES[tab];
+  $$("[data-export]").forEach(b => { b.hidden = b.dataset.export !== EXPORT_TAB[tab]; });
   if (isMobile()) sidebar(false);
 }
 $$("[data-tab]").forEach(b => b.onclick = () => setTab(b.dataset.tab));
@@ -133,6 +138,7 @@ function showNewChat() { $("#newChat").hidden = !(currentTab === "ask" && histor
 
 function newChat() {
   history = [];
+  state.askLog = [];
   chat.innerHTML = EMPTY_HTML;
   $$(".samples button").forEach(b => b.onclick = () => ask(b.textContent));
   showNewChat();
@@ -157,12 +163,10 @@ async function ask(question) {
   try {
     const r = await api("/api/ask", { question, video: state.video, lang: state.lang, history: history.slice(-2) });
     history.push({ q: question, a: r.answer.slice(0, 4000) });
+    state.askLog.push({ q: question, answer: r.answer, sources: r.sources, source: sourceName() });
     showNewChat();
-    const byN = Object.fromEntries(r.sources.map(s => [s.n, s]));
-    const cited = new Set();
     // turn [2] / 【2】 / [1, 3] citations into clickable timestamp chips
-    let html = md(r.answer).replace(/(?:\[|【)\s*(\d+(?:\s*[,，]\s*\d+)*)\s*(?:\]|】)/g, (m, nums) =>
-      nums.split(/[,，]/).map(n => { const s = byN[n.trim()]; if (!s) return ""; cited.add(s.n); return chip(s); }).join(" "));
+    let { html, cited } = LMReport.linkCitations(md(r.answer), r.sources, chip);
     const rest = r.sources.filter(s => !cited.has(s.n)).slice(0, cited.size ? 2 : 3);
     if (rest.length) html += `<div class="srcs">Also see ${rest.map(chip).join("")}</div>`;
     bot.innerHTML = html;
@@ -186,7 +190,10 @@ $("#examForm").onsubmit = async (e) => {
   const out = $("#examOut"), btn = $("#examForm .btn");
   out.innerHTML = ""; out.append(loading("Preparing notes and quiz…")); btn.disabled = true;
   try {
-    renderExam(await api("/api/exam", { video: state.video, topic: $("#examTopic").value.trim() || null, lang: state.lang }));
+    const topic = $("#examTopic").value.trim() || null;
+    const data = await api("/api/exam", { video: state.video, topic, lang: state.lang });
+    state.exam = { ...data, topic, source: sourceName(), picks: data.quiz.map(() => null) };
+    renderExam(data);
   } catch (err) {
     out.innerHTML = `<p class="msg err">${esc(err.message)}</p>`;
   } finally { btn.disabled = false; }
@@ -208,6 +215,7 @@ function renderExam({ notes, quiz }) {
       `<div class="explain" hidden></div>`;
     $$(".opt", el).forEach(b => b.onclick = () => {
       const pick = Number(b.dataset.i), ok = pick === q.answer;
+      if (state.exam && state.exam.quiz === quiz) state.exam.picks[qi] = pick;
       $$(".opt", el).forEach((x, i) => {
         x.disabled = true;
         if (i === q.answer) x.classList.add("right");
@@ -228,7 +236,12 @@ function renderExam({ notes, quiz }) {
 }
 
 // ---------- INTERVIEW ----------
-$("#ivStartForm").onsubmit = (e) => { e.preventDefault(); state.asked = []; nextQuestion(); };
+$("#ivStartForm").onsubmit = (e) => {
+  e.preventDefault();
+  state.asked = [];
+  state.interview = { topic: $("#ivTopic").value.trim() || null, source: sourceName(), rounds: [] };
+  nextQuestion();
+};
 
 async function nextQuestion() {
   const out = $("#ivOut");
@@ -257,9 +270,12 @@ async function grade(question, answer) {
   res.innerHTML = ""; res.append(loading("Evaluating your answer…"));
   try {
     const r = await api("/api/interview/grade", { question, answer, video: state.video, lang: state.lang });
+    state.interview?.rounds.push({ question, answer, ...r });
     const color = r.score >= 7 ? "var(--good)" : r.score >= 4 ? "var(--accent)" : "var(--bad)";
+    const points = (items, cls) => items?.length ? `<ul class="points ${cls}">${items.map(s => `<li>${esc(s)}</li>`).join("")}</ul>` : "";
     res.innerHTML = `<div class="card">
       <div class="result-head"><div class="ring" style="color:${color}">${r.score}</div><div>${md(r.feedback)}</div></div>
+      ${points(r.strengths, "good")}${points(r.weaknesses, "bad")}
       <div class="label">Ideal answer</div><div>${md(r.ideal_answer)}</div>
       ${r.source ? `<div class="label">Revise</div>${chip(r.source)}` : ""}
       <div class="actions"><button class="btn" id="ivNext">Next question</button></div>
@@ -289,3 +305,73 @@ $("#ytForm").onsubmit = async (e) => {
     msg.textContent = err.message;
   } finally { btn.disabled = false; }
 };
+
+// ---------- PDF export (built in the browser from the session data above; Save as PDF via the print dialog) ----------
+const EXPORT_TAB = { ask: "conversation", exam: "exam", interview: "interview" };
+// in-app browsers (Instagram, Facebook, Android WebView…) silently ignore window.print()
+const IN_APP = /Instagram|FBAN|FBAV|FB_IAB|Line\/|Snapchat|; wv\)/i;
+let toastTimer;
+
+function toast(text, isErr = false) {
+  const t = $("#toast");
+  t.textContent = text;
+  t.classList.toggle("err", isErr);
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, isErr ? 7000 : 4500);
+}
+
+function buildReport(kind) {
+  const meta = {
+    date: new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }),
+    lang: state.lang === "english" ? "English" : "Hinglish",
+  };
+  const opts = { md };  // md() sanitises AI markdown with DOMPurify
+  if (kind === "conversation") return LMReport.conversation(state.askLog, { ...meta, source: state.askLog[0]?.source }, opts);
+  if (kind === "exam") return LMReport.exam(state.exam, { ...meta, source: state.exam?.source }, opts);
+  return LMReport.interview(state.interview, { ...meta, source: state.interview?.source }, opts);
+}
+
+async function exportPdf(btn) {
+  if (btn.disabled) return;
+  let html;
+  try {
+    html = buildReport(btn.dataset.export);
+  } catch (e) {
+    toast(e instanceof LMReport.ReportError ? e.message : "PDF nahi ban paayi. Page refresh karke dobara try karo.", true);
+    if (!(e instanceof LMReport.ReportError)) console.error(e);
+    return;
+  }
+  if (IN_APP.test(navigator.userAgent) || typeof window.print !== "function") {
+    toast("Is app ka browser PDF save nahi karta. Link ko Chrome ya Safari mein kholo, phir download karo.", true);
+    return;
+  }
+  const label = btn.innerHTML, title = document.title;
+  btn.disabled = true;
+  btn.innerHTML = `<span class="dots"><i></i><i></i><i></i></span>Preparing PDF…`;
+  const root = document.documentElement;
+  $("#printRoot").innerHTML = html;  // replaces any previous report
+  root.classList.add("print-report");
+  document.title = LMReport.filename(btn.dataset.export);  // becomes the suggested file name
+  const resetButton = () => { btn.disabled = false; btn.innerHTML = label; };
+  const cleanup = () => {
+    resetButton();
+    // wait a moment: mobile browsers may still be reading the page right after afterprint
+    setTimeout(() => { document.title = title; root.classList.remove("print-report"); $("#printRoot").innerHTML = ""; }, 1500);
+  };
+  try {
+    await document.fonts?.ready;
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    toast("Print window mein “Save as PDF” chuno.");
+    window.addEventListener("afterprint", cleanup, { once: true });
+    window.print();
+    // some browsers never fire afterprint: free the button, keep the report until the next export
+    setTimeout(() => { resetButton(); document.title = title; }, 4000);
+  } catch (e) {
+    console.error(e);
+    window.removeEventListener("afterprint", cleanup);
+    toast("PDF nahi ban paayi. Dobara try karo.", true);
+    cleanup();
+  }
+}
+$$("[data-export]").forEach(b => b.onclick = () => exportPdf(b));

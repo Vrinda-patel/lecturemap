@@ -87,6 +87,13 @@ def lang_note(lang: str) -> str:
     return f"\n\nIMPORTANT — output language: {prompts.LANG[lang]}"
 
 
+def str_list(value, n: int = 3, max_len: int = 240) -> list[str]:
+    """Keep only non-empty strings from a model-provided list (models sometimes return a string or null)."""
+    if not isinstance(value, list):
+        return []
+    return [s.strip()[:max_len] for s in value if isinstance(s, str) and s.strip()][:n]
+
+
 def guard(fn):
     try:
         return fn()
@@ -196,12 +203,13 @@ def interview_grade(body: GradeIn):
         chunks = corpus.search(embed([body.question])[0], k=4, video=body.video)
         data = chat_json(prompts.interview_grade(body.lang),
                          f"Excerpts:\n{context_block(chunks)}\n\nQuestion: {body.question}\n\nCandidate's answer: {body.answer or '(no answer)'}{lang_note(body.lang)}",
-                         max_tokens=1200)
+                         max_tokens=1500)
         try:
             score = max(0, min(10, int(data.get("score", 0))))
         except (TypeError, ValueError):
             score = 0
         return {"score": score, "feedback": data.get("feedback", ""), "ideal_answer": data.get("ideal_answer", ""),
+                "strengths": str_list(data.get("strengths")), "weaknesses": str_list(data.get("weaknesses")),
                 "source": ref_to_source(chunks, data.get("ref"))}
 
     return guard(run)
